@@ -379,20 +379,6 @@ curl -s http://localhost:9090/api/v1/targets | jq '.data.activeTargets[] | {job:
 ```bash
 # Fix network connectivity
 ./fix_networks.sh
-
-# Possiblity that webapp status on promethus shows down, Fix-
-# Connect Prometheus to the webapp network
-docker network connect devsecops-webapp_monitoring_default prometheus
-
-# Restart Prometheus to pick up the network change
-docker restart prometheus
-
-# Wait for restart
-sleep 15
-
-# Manual network inspection
-docker network ls
-docker network inspect devsecops-webapp_monitoring_default
 ```
 
 #### 📊 Prometheus Targets Down
