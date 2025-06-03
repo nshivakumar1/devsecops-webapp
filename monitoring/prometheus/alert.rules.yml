@@ -1,0 +1,29 @@
+groups:
+  - name: webapp_alerts
+    rules:
+      - alert: WebappDown
+        expr: up{job="webapp"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Webapp is down"
+          description: "The webapp has been down for more than 1 minute."
+
+      - alert: HighMemoryUsage
+        expr: (node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes) / node_memory_MemTotal_bytes > 0.8
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High memory usage detected"
+          description: "Memory usage is above 80% for more than 2 minutes."
+
+      - alert: HighRequestRate
+        expr: rate(http_requests_total[5m]) > 100
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High request rate detected"
+          description: "Request rate is above 100 requests per second."

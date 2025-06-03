@@ -1,0 +1,13 @@
+{
+  "name": "devsecops-webapp",
+  "version": "1.0.0",
+  "description": "Dynamic webapp for DevSecOps demo",
+  "main": "app.js",
+  "scripts": {
+    "start": "node app.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "prom-client": "^14.2.0"
+  }
+}

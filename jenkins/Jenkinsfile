@@ -1,0 +1,116 @@
+pipeline {
+    agent any
+    
+    environment {
+        DOCKER_IMAGE = 'devsecops-webapp'
+        DOCKER_TAG = "${BUILD_NUMBER}"
+        TRIVY_CACHE_DIR = '/tmp/trivy-cache'
+    }
+    
+    stages {
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+        
+        stage('Build') {
+            steps {
+                script {
+                    echo 'Building Docker image...'
+                    sh '''
+                        cd webapp
+                        docker build -t ${DOCKER_IMAGE}:${DOCKER_TAG} .
+                        docker tag ${DOCKER_IMAGE}:${DOCKER_TAG} ${DOCKER_IMAGE}:latest
+                    '''
+                }
+            }
+        }
+        
+        stage('Security Scan with Trivy') {
+            steps {
+                script {
+                    echo 'Running Trivy security scan...'
+                    sh '''
+                        # Install Trivy if not present
+                        if ! command -v trivy &> /dev/null; then
+                            curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin
+                        fi
+                        
+                        # Create cache directory
+                        mkdir -p ${TRIVY_CACHE_DIR}
+                        
+                        # Scan for vulnerabilities
+                        trivy image --cache-dir ${TRIVY_CACHE_DIR} --format table --exit-code 0 ${DOCKER_IMAGE}:${DOCKER_TAG}
+                        
+                        # Generate JSON report
+                        trivy image --cache-dir ${TRIVY_CACHE_DIR} --format json --output trivy-report.json ${DOCKER_IMAGE}:${DOCKER_TAG}
+                    '''
+                }
+            }
+            post {
+                always {
+                    archiveArtifacts artifacts: 'trivy-report.json', fingerprint: true
+                }
+            }
+        }
+        
+        stage('Test') {
+            steps {
+                script {
+                    echo 'Running container tests...'
+                    sh '''
+                        # Start container for testing
+                        docker run -d --name test-container -p 3002:3000 ${DOCKER_IMAGE}:${DOCKER_TAG}
+                        
+                        # Wait for container to start
+                        sleep 10
+                        
+                        # Test health endpoint
+                        curl -f http://localhost:3002/health || exit 1
+                        
+                        # Test API endpoints
+                        curl -f http://localhost:3002/api/time || exit 1
+                        curl -f http://localhost:3002/metrics || exit 1
+                        
+                        # Cleanup
+                        docker stop test-container
+                        docker rm test-container
+                    '''
+                }
+            }
+        }
+        
+        stage('Deploy') {
+            steps {
+                script {
+                    echo 'Deploying application...'
+                    sh '''
+                        # Stop existing container if running
+                        docker stop devsecops-webapp || true
+                        docker rm devsecops-webapp || true
+                        
+                        # Run new container
+                        docker run -d --name devsecops-webapp \
+                            -p 3000:3000 \
+                            --network monitoring_default \
+                            ${DOCKER_IMAGE}:${DOCKER_TAG}
+                    '''
+                }
+            }
+        }
+    }
+    
+    post {
+        always {
+            echo 'Pipeline completed!'
+            sh 'docker system prune -f'
+        }
+        success {
+            echo 'Pipeline succeeded!'
+        }
+        failure {
+            echo 'Pipeline failed!'
+        }
+    }
+}

@@ -1,0 +1,21 @@
+# Trivy configuration file
+cache:
+  dir: /tmp/trivy-cache
+
+scan:
+  security-checks:
+    - vuln
+    - secret
+    - config
+
+format: table
+exit-code: 0
+
+severity:
+  - UNKNOWN
+  - LOW
+  - MEDIUM
+  - HIGH
+  - CRITICAL
+
+ignore-unfixed: false
